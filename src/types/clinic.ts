@@ -34,16 +34,18 @@ export interface Service {
 export interface Appointment {
   id: string;
   patientId: string;
-  patientName: string;
   doctorId: string;
-  doctorName: string;
   serviceId: string;
-  serviceName: string;
-  date: Date;
+  date: string; // ISO String do backend
   time: string;
-  status: "scheduled" | "confirmed" | "completed" | "cancelled";
   notes?: string;
-  price: number;
+  status: "scheduled" | "confirmed" | "completed" | "cancelled";
+  createdAt: Date;
+
+  // -- RELACIONAMENTOS (Vêm do include do Prisma) --
+  patient?: { name: string };
+  doctor?: { name: string };
+  service?: { name: string; price: number };
 }
 
 export interface Transaction {

@@ -1,339 +1,319 @@
-import { useState } from 'react';
-import { format, startOfMonth, endOfMonth, isWithinInterval, parseISO } from 'date-fns';
-import { ptBR } from 'date-fns/locale';
-import { Plus, Search, Calendar as CalendarIcon, User, Filter, Edit } from 'lucide-react';
-import { MainLayout } from '@/components/layout/MainLayout';
-import { DataTable } from '@/components/ui/data-table';
-import { Button } from '@/components/ui/button';
+import { useState, useEffect } from "react";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import { Input } from '@/components/ui/input';
-import { Badge } from '@/components/ui/badge';
-import { Calendar } from '@/components/ui/calendar';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { mockAppointments, mockBankAccounts } from '@/data/mockData';
-import { Appointment, CashMovement, BankMovement } from '@/types/clinic';
-import { AppointmentModal } from '@/components/modals/AppointmentModal';
-import { AppointmentStatusModal } from '@/components/modals/AppointmentStatusModal';
-import { useNotificationActions } from '@/hooks/useNotificationActions';
-import { cn } from '@/lib/utils';
-import { toast } from 'sonner';
+  Plus,
+  Search,
+  Calendar,
+  Clock,
+  User,
+  Stethoscope,
+  Edit,
+  Trash2,
+} from "lucide-react";
+import { format } from "date-fns";
+import { ptBR } from "date-fns/locale";
+import { MainLayout } from "../components/layout/MainLayout";
+import { DataTable } from "../components/ui/data-table";
+import { Button } from "../components/ui/button";
+import { Input } from "../components/ui/input";
+import { Badge } from "../components/ui/badge";
+import type { Appointment } from "../types/clinic";
+import { AppointmentModal } from "../components/modals/AppointmentModal";
+import { appointmentService } from "../services/appointment-service";
+import { toast } from "sonner";
 
-const statusConfig = {
-  scheduled: { label: 'Agendado', className: 'badge-primary' },
-  confirmed: { label: 'Confirmado', className: 'badge-success' },
-  completed: { label: 'Concluído', className: 'bg-muted text-muted-foreground' },
-  cancelled: { label: 'Cancelado', className: 'badge-destructive' },
-};
-
-type PaymentMethod = 'cash' | 'pix' | 'credit_card' | 'debit_card';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "../components/ui/alert-dialog";
 
 export default function Appointments() {
-  const [searchTerm, setSearchTerm] = useState('');
+  // Filtros
+  const [dateFilter, setDateFilter] = useState(
+    new Date().toISOString().split("T")[0],
+  ); // Começa com HOJE
+  const [searchTerm, setSearchTerm] = useState("");
+
+  // Dados
+  const [appointments, setAppointments] = useState<Appointment[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  // Modais
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [isStatusModalOpen, setIsStatusModalOpen] = useState(false);
-  const [selectedAppointment, setSelectedAppointment] = useState<Appointment | null>(null);
-  const [appointments, setAppointments] = useState(mockAppointments);
-  const [startDate, setStartDate] = useState<Date | undefined>(startOfMonth(new Date()));
-  const [endDate, setEndDate] = useState<Date | undefined>(endOfMonth(new Date()));
-  const [statusFilter, setStatusFilter] = useState<Appointment['status'] | 'all'>('all');
-  const { notifyAppointmentCreated, notifyCashMovement, notifyBankMovement } = useNotificationActions();
+  const [selectedAppointment, setSelectedAppointment] = useState<
+    Appointment | undefined
+  >(undefined);
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [appointmentToDelete, setAppointmentToDelete] =
+    useState<Appointment | null>(null);
 
-  const filteredAppointments = appointments.filter((appointment) => {
-    const matchesSearch =
-      appointment.patientName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      appointment.doctorName.toLowerCase().includes(searchTerm.toLowerCase());
+  const fetchAppointments = async () => {
+    try {
+      setIsLoading(true);
+      // Aqui poderíamos passar dateFilter como startDate e endDate para filtrar no backend
+      // Por enquanto, vamos pegar tudo e filtrar no front se quiser, ou usar o filtro:
+      // const data = await appointmentService.getAll(dateFilter, dateFilter); (Para pegar só do dia)
 
-    const appointmentDate = typeof appointment.date === 'string' 
-      ? parseISO(appointment.date) 
-      : appointment.date;
+      // Vamos pegar TUDO por enquanto para ver a lista cheia:
+      const data = await appointmentService.getAll();
+      setAppointments(data);
+    } catch (error) {
+      console.error(error);
+      toast.error("Erro ao carregar agendamentos");
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
-    const matchesDateRange =
-      startDate && endDate
-        ? isWithinInterval(appointmentDate, { start: startDate, end: endDate })
-        : true;
+  useEffect(() => {
+    fetchAppointments();
+  }, []); // Se quiser recarregar ao mudar data: [dateFilter]
 
-    const matchesStatus = statusFilter === 'all' || appointment.status === statusFilter;
+  // Lógica de Filtro no Frontend (Data + Busca)
+  const filteredAppointments = appointments.filter((app) => {
+    const appDate = new Date(app.date).toISOString().split("T")[0];
+    const matchDate = !dateFilter || appDate === dateFilter; // Se tiver filtro de data, usa. Se vazio, mostra tudo.
 
-    return matchesSearch && matchesDateRange && matchesStatus;
+    const matchSearch =
+      app.patient?.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      app.doctor?.name.toLowerCase().includes(searchTerm.toLowerCase());
+
+    return matchDate && matchSearch;
   });
 
-  const handleSave = (appointmentData: Omit<Appointment, 'id'>) => {
-    const newAppointment: Appointment = {
-      ...appointmentData,
-      id: String(Date.now()),
-    };
-    setAppointments([...appointments, newAppointment]);
-    notifyAppointmentCreated(
-      appointmentData.patientName,
-      format(appointmentData.date, 'dd/MM/yyyy'),
-      appointmentData.time
-    );
-  };
-
-  const handleStatusChange = (
-    appointmentId: string,
-    newStatus: Appointment['status'],
-    paymentData?: {
-      paymentMethod: PaymentMethod;
-      bankAccountId?: string;
-    }
-  ) => {
-    const appointment = appointments.find((a) => a.id === appointmentId);
-    if (!appointment) return;
-
-    // Atualiza o status do agendamento
-    setAppointments((prev) =>
-      prev.map((a) => (a.id === appointmentId ? { ...a, status: newStatus } : a))
-    );
-
-    // Se foi concluído com pagamento, registra a movimentação
-    if (newStatus === 'completed' && paymentData) {
-      const paymentMethodLabels: Record<PaymentMethod, string> = {
-        cash: 'Dinheiro',
-        pix: 'PIX',
-        credit_card: 'Cartão de Crédito',
-        debit_card: 'Cartão de Débito',
-      };
-
-      if (paymentData.paymentMethod === 'cash') {
-        // Adiciona ao caixa
-        const cashMovement: CashMovement = {
-          id: String(Date.now()),
-          type: 'income',
-          description: `Consulta - ${appointment.patientName}`,
-          amount: appointment.price,
-          date: new Date(),
-          category: 'Consultas',
-          paymentMethod: 'cash',
-        };
-        console.log('Movimentação de caixa criada:', cashMovement);
-        notifyCashMovement('income', `Consulta - ${appointment.patientName}`, appointment.price);
-        toast.success('Valor adicionado ao caixa');
-      } else if (paymentData.bankAccountId) {
-        // PIX, Cartão de Crédito ou Débito - adiciona à conta bancária
-        const bankAccount = mockBankAccounts.find((b) => b.id === paymentData.bankAccountId);
-        const bankMovement: BankMovement = {
-          id: String(Date.now()),
-          accountId: paymentData.bankAccountId,
-          type: 'credit',
-          description: `Consulta (${paymentMethodLabels[paymentData.paymentMethod]}) - ${appointment.patientName}`,
-          amount: appointment.price,
-          date: new Date(),
-          category: 'Consultas',
-        };
-        console.log('Movimentação bancária criada:', bankMovement);
-        if (bankAccount) {
-          notifyBankMovement(bankAccount.name, 'credit', appointment.price);
-        }
-        toast.success(`Valor creditado via ${paymentMethodLabels[paymentData.paymentMethod]}`);
+  const handleSave = async (data: any) => {
+    try {
+      if (selectedAppointment) {
+        await appointmentService.update(selectedAppointment.id, data);
+        toast.success("Agendamento atualizado!");
+      } else {
+        await appointmentService.create(data);
+        toast.success("Agendamento criado!");
       }
+      await fetchAppointments();
+      setIsModalOpen(false);
+      setSelectedAppointment(undefined);
+    } catch (error) {
+      console.error(error);
+      toast.error(
+        "Erro ao salvar. Verifique se o paciente e médico estão ativos.",
+      );
     }
-
-    toast.success(`Status alterado para ${statusConfig[newStatus].label}`);
   };
 
-  const handleOpenStatusModal = (appointment: Appointment) => {
-    setSelectedAppointment(appointment);
-    setIsStatusModalOpen(true);
+  const confirmDelete = async () => {
+    if (!appointmentToDelete) return;
+    try {
+      await appointmentService.delete(appointmentToDelete.id);
+      toast.success("Agendamento removido.");
+      await fetchAppointments();
+    } catch (error) {
+      toast.error("Erro ao remover agendamento.");
+    } finally {
+      setIsDeleteModalOpen(false);
+      setAppointmentToDelete(null);
+    }
+  };
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case "confirmed":
+        return "bg-green-500/10 text-green-700 border-green-200";
+      case "completed":
+        return "bg-blue-500/10 text-blue-700 border-blue-200";
+      case "cancelled":
+        return "bg-red-500/10 text-red-700 border-red-200";
+      default:
+        return "bg-yellow-500/10 text-yellow-700 border-yellow-200"; // scheduled
+    }
+  };
+
+  const getStatusLabel = (status: string) => {
+    switch (status) {
+      case "confirmed":
+        return "Confirmado";
+      case "completed":
+        return "Concluído";
+      case "cancelled":
+        return "Cancelado";
+      default:
+        return "Agendado";
+    }
   };
 
   const columns = [
     {
-      key: 'dateTime',
-      header: 'Data/Hora',
-      cell: (appointment: Appointment) => (
-        <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
-            <CalendarIcon className="h-5 w-5 text-primary" />
+      key: "time",
+      header: "Horário",
+      cell: (app: Appointment) => (
+        <div className="flex flex-col">
+          <div className="flex items-center font-bold text-foreground">
+            <Clock className="mr-1 h-3.5 w-3.5" />
+            {app.time}
           </div>
-          <div>
-            <p className="font-medium text-foreground">
-              {format(appointment.date, "dd 'de' MMM", { locale: ptBR })}
-            </p>
-            <p className="text-sm text-muted-foreground">{appointment.time}</p>
-          </div>
+          <span className="text-xs text-muted-foreground">
+            {format(new Date(app.date), "dd/MM", { locale: ptBR })}
+          </span>
         </div>
       ),
     },
     {
-      key: 'patient',
-      header: 'Paciente',
-      cell: (appointment: Appointment) => (
+      key: "patient",
+      header: "Paciente",
+      cell: (app: Appointment) => (
         <div className="flex items-center gap-2">
           <User className="h-4 w-4 text-muted-foreground" />
-          <span className="font-medium">{appointment.patientName}</span>
+          <span className="font-medium">
+            {app.patient?.name || "Desconhecido"}
+          </span>
         </div>
       ),
     },
     {
-      key: 'doctor',
-      header: 'Médico',
-      cell: (appointment: Appointment) => (
-        <span className="text-muted-foreground">{appointment.doctorName}</span>
+      key: "doctor",
+      header: "Médico",
+      cell: (app: Appointment) => (
+        <div className="flex items-center gap-2 text-muted-foreground text-sm">
+          <Stethoscope className="h-3.5 w-3.5" />
+          <span>{app.doctor?.name || "N/A"}</span>
+        </div>
       ),
     },
     {
-      key: 'service',
-      header: 'Serviço',
-      cell: (appointment: Appointment) => (
-        <span className="text-muted-foreground">{appointment.serviceName}</span>
+      key: "service",
+      header: "Procedimento",
+      cell: (app: Appointment) => (
+        <span className="text-sm">{app.service?.name}</span>
       ),
     },
     {
-      key: 'price',
-      header: 'Valor',
-      cell: (appointment: Appointment) => (
-        <span className="font-semibold text-foreground">
-          R$ {appointment.price.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-        </span>
-      ),
-    },
-    {
-      key: 'status',
-      header: 'Status',
-      cell: (appointment: Appointment) => (
-        <Badge variant="outline" className={cn(statusConfig[appointment.status].className)}>
-          {statusConfig[appointment.status].label}
+      key: "status",
+      header: "Status",
+      cell: (app: Appointment) => (
+        <Badge variant="outline" className={getStatusColor(app.status)}>
+          {getStatusLabel(app.status)}
         </Badge>
       ),
     },
     {
-      key: 'actions',
-      header: 'Ações',
-      cell: (appointment: Appointment) => (
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => handleOpenStatusModal(appointment)}
-          className="h-8 w-8 p-0"
-        >
-          <Edit className="h-4 w-4" />
-        </Button>
+      key: "actions",
+      header: "Ações",
+      cell: (app: Appointment) => (
+        <div className="flex items-center gap-2">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => {
+              setSelectedAppointment(app);
+              setIsModalOpen(true);
+            }}
+          >
+            <Edit className="h-4 w-4" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="text-destructive hover:text-destructive"
+            onClick={() => {
+              setAppointmentToDelete(app);
+              setIsDeleteModalOpen(true);
+            }}
+          >
+            <Trash2 className="h-4 w-4" />
+          </Button>
+        </div>
       ),
     },
   ];
 
-  const clearFilters = () => {
-    setStartDate(startOfMonth(new Date()));
-    setEndDate(endOfMonth(new Date()));
-    setSearchTerm('');
-    setStatusFilter('all');
-  };
-
   return (
-    <MainLayout title="Agendamentos" subtitle="Gerencie os agendamentos da clínica">
-      <div className="flex flex-col gap-4">
-        <div className="page-header">
-          <div className="flex items-center gap-3 flex-wrap">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                placeholder="Buscar por paciente ou médico..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-80 pl-9"
-              />
+    <MainLayout
+      title="Agendamentos"
+      subtitle="Agenda de consultas e procedimentos"
+    >
+      <div className="page-header flex flex-col md:flex-row gap-4 justify-between items-center">
+        <div className="flex flex-col sm:flex-row gap-3 w-full md:w-auto">
+          {/* Filtro de Data */}
+          <div className="relative">
+            <div className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none text-muted-foreground">
+              <Calendar className="h-4 w-4" />
             </div>
-
-            <div className="flex items-center gap-2">
-              <Filter className="h-4 w-4 text-muted-foreground" />
-              
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button
-                    variant="outline"
-                    className={cn(
-                      "w-[160px] justify-start text-left font-normal",
-                      !startDate && "text-muted-foreground"
-                    )}
-                  >
-                    <CalendarIcon className="mr-2 h-4 w-4" />
-                    {startDate ? format(startDate, "dd/MM/yyyy") : "Data inicial"}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0 bg-popover" align="start">
-                  <Calendar
-                    mode="single"
-                    selected={startDate}
-                    onSelect={setStartDate}
-                    initialFocus
-                    className="pointer-events-auto"
-                  />
-                </PopoverContent>
-              </Popover>
-
-              <span className="text-muted-foreground">até</span>
-
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button
-                    variant="outline"
-                    className={cn(
-                      "w-[160px] justify-start text-left font-normal",
-                      !endDate && "text-muted-foreground"
-                    )}
-                  >
-                    <CalendarIcon className="mr-2 h-4 w-4" />
-                    {endDate ? format(endDate, "dd/MM/yyyy") : "Data final"}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0 bg-popover" align="start">
-                  <Calendar
-                    mode="single"
-                    selected={endDate}
-                    onSelect={setEndDate}
-                    initialFocus
-                    className="pointer-events-auto"
-                  />
-                </PopoverContent>
-              </Popover>
-
-              <Select value={statusFilter} onValueChange={(value: Appointment['status'] | 'all') => setStatusFilter(value)}>
-                <SelectTrigger className="w-[160px]">
-                  <SelectValue placeholder="Status" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Todos os status</SelectItem>
-                  <SelectItem value="scheduled">Agendado</SelectItem>
-                  <SelectItem value="confirmed">Confirmado</SelectItem>
-                  <SelectItem value="completed">Concluído</SelectItem>
-                  <SelectItem value="cancelled">Cancelado</SelectItem>
-                </SelectContent>
-              </Select>
-
-              <Button variant="ghost" size="sm" onClick={clearFilters}>
-                Limpar
-              </Button>
-            </div>
+            <Input
+              type="date"
+              value={dateFilter}
+              onChange={(e) => setDateFilter(e.target.value)}
+              className="pl-9 w-40"
+            />
           </div>
-          
-          <Button onClick={() => setIsModalOpen(true)}>
-            <Plus className="mr-2 h-4 w-4" />
-            Novo Agendamento
+
+          {/* Busca Texto */}
+          <div className="relative w-full sm:w-64">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              placeholder="Buscar paciente ou médico..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-9"
+            />
+          </div>
+
+          <Button
+            variant="outline"
+            onClick={() => setDateFilter("")} // Limpar filtro de data
+            className="text-xs"
+          >
+            Ver Todos
           </Button>
         </div>
+
+        <Button
+          onClick={() => {
+            setSelectedAppointment(undefined);
+            setIsModalOpen(true);
+          }}
+        >
+          <Plus className="mr-2 h-4 w-4" />
+          Novo Agendamento
+        </Button>
       </div>
 
-      <DataTable data={filteredAppointments} columns={columns} />
+      {isLoading ? (
+        <div className="flex justify-center p-8">Carregando agenda...</div>
+      ) : (
+        <DataTable data={filteredAppointments} columns={columns} />
+      )}
 
       <AppointmentModal
         open={isModalOpen}
         onOpenChange={setIsModalOpen}
         onSave={handleSave}
+        appointment={selectedAppointment}
       />
 
-      <AppointmentStatusModal
-        open={isStatusModalOpen}
-        onOpenChange={setIsStatusModalOpen}
-        appointment={selectedAppointment}
-        onSave={handleStatusChange}
-      />
+      <AlertDialog open={isDeleteModalOpen} onOpenChange={setIsDeleteModalOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Cancelar Agendamento?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Isso removerá permanentemente o agendamento do sistema.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Voltar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmDelete}
+              className="bg-destructive hover:bg-destructive/90"
+            >
+              Excluir
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </MainLayout>
   );
 }
