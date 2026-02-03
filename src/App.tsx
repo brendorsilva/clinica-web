@@ -2,7 +2,7 @@ import { Toaster } from "./components/ui/toaster.tsx";
 import { Toaster as Sonner } from "./components/ui/sonner.tsx";
 import { TooltipProvider } from "./components/ui/tooltip.tsx";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { NotificationProvider } from "./contexts/NotificationContext";
 import Dashboard from "./pages/Dashboard.tsx";
 import Patients from "./pages/Patients.tsx";
@@ -17,33 +17,134 @@ import Users from "./pages/Users.tsx";
 import Settings from "./pages/Settings.tsx";
 import Auth from "./pages/Auth.tsx";
 import NotFound from "./pages/NotFound.tsx";
+import { AuthProvider, useAuth } from "./contexts/AuthContext.tsx";
 
 const queryClient = new QueryClient();
+
+function PrivateRoute({ children }: { children: React.ReactNode }) {
+  const { isAuthenticated, loading } = useAuth();
+
+  if (loading) return <div>Carregando ...</div>;
+
+  return isAuthenticated ? <>{children}</> : <Navigate to="/auth" />;
+}
+
+const AppRoutes = () => {
+  return (
+    <Routes>
+      <Route path="/auth" element={<Auth />} />
+      <Route
+        path="/"
+        element={
+          <PrivateRoute>
+            <Dashboard />
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/patients"
+        element={
+          <PrivateRoute>
+            <Patients />
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/doctors"
+        element={
+          <PrivateRoute>
+            <Doctors />
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/services"
+        element={
+          <PrivateRoute>
+            <Services />
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/appointments"
+        element={
+          <PrivateRoute>
+            <Appointments />
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/financial/receivables"
+        element={
+          <PrivateRoute>
+            <Receivables />
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/financial/payables"
+        element={
+          <PrivateRoute>
+            <Payables />
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/financial/cash"
+        element={
+          <PrivateRoute>
+            <Cash />
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/financial/bank"
+        element={
+          <PrivateRoute>
+            <Bank />
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/users"
+        element={
+          <PrivateRoute>
+            <Users />
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/settings"
+        element={
+          <PrivateRoute>
+            <Settings />
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="*"
+        element={
+          <PrivateRoute>
+            <NotFound />
+          </PrivateRoute>
+        }
+      />
+    </Routes>
+  );
+};
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
-      <NotificationProvider>
-        <Toaster />
-        <Sonner />
-        <BrowserRouter>
-          <Routes>
-            <Route path="/auth" element={<Auth />} />
-            <Route path="/" element={<Dashboard />} />
-            <Route path="/patients" element={<Patients />} />
-            <Route path="/doctors" element={<Doctors />} />
-            <Route path="/services" element={<Services />} />
-            <Route path="/appointments" element={<Appointments />} />
-            <Route path="/financial/receivables" element={<Receivables />} />
-            <Route path="/financial/payables" element={<Payables />} />
-            <Route path="/financial/cash" element={<Cash />} />
-            <Route path="/financial/bank" element={<Bank />} />
-            <Route path="/users" element={<Users />} />
-            <Route path="/settings" element={<Settings />} />
-            <Route path="*" element={<NotFound />} />
-          </Routes>
-        </BrowserRouter>
-      </NotificationProvider>
+      <AuthProvider>
+        <NotificationProvider>
+          <Toaster />
+          <Sonner />
+          <BrowserRouter>
+            <AppRoutes />
+          </BrowserRouter>
+        </NotificationProvider>
+      </AuthProvider>
     </TooltipProvider>
   </QueryClientProvider>
 );

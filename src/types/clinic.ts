@@ -5,7 +5,7 @@ export interface Doctor {
   crm: string;
   phone: string;
   email: string;
-  status: 'active' | 'inactive';
+  status: "active" | "inactive";
   createdAt: Date;
 }
 
@@ -28,7 +28,7 @@ export interface Service {
   price: number;
   duration: number; // in minutes
   category: string;
-  status: 'active' | 'inactive';
+  status: "active" | "inactive";
 }
 
 export interface Appointment {
@@ -41,31 +41,31 @@ export interface Appointment {
   serviceName: string;
   date: Date;
   time: string;
-  status: 'scheduled' | 'confirmed' | 'completed' | 'cancelled';
+  status: "scheduled" | "confirmed" | "completed" | "cancelled";
   notes?: string;
   price: number;
 }
 
 export interface Transaction {
   id: string;
-  type: 'receivable' | 'payable';
+  type: "receivable" | "payable";
   description: string;
   amount: number;
   dueDate: Date;
   paidDate?: Date;
-  status: 'pending' | 'paid' | 'overdue' | 'cancelled';
+  status: "pending" | "paid" | "overdue" | "cancelled";
   category: string;
   reference?: string;
 }
 
 export interface CashMovement {
   id: string;
-  type: 'income' | 'expense';
+  type: "income" | "expense";
   description: string;
   amount: number;
   date: Date;
   category: string;
-  paymentMethod: 'cash' | 'credit' | 'debit' | 'pix' | 'transfer';
+  paymentMethod: "cash" | "credit" | "debit" | "pix" | "transfer";
 }
 
 export interface BankAccount {
@@ -80,20 +80,26 @@ export interface BankAccount {
 export interface BankMovement {
   id: string;
   accountId: string;
-  type: 'credit' | 'debit';
+  type: "credit" | "debit";
   description: string;
   amount: number;
   date: Date;
   category: string;
 }
 
-export type UserRole = 'admin' | 'manager' | 'receptionist' | 'doctor' | 'financial';
+export type UserRole =
+  | "admin"
+  | "manager"
+  | "receptionist"
+  | "doctor"
+  | "financial";
 
 export interface User {
   id: string;
   name: string;
   email: string;
   role: UserRole;
-  status: 'active' | 'inactive';
+  clinicId: string;
+  status: "active" | "inactive";
   permissions: string[];
 }
