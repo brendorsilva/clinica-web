@@ -1,61 +1,68 @@
-import { useState } from 'react';
-import { format } from 'date-fns';
-import { Plus, Search, CreditCard } from 'lucide-react';
-import { MainLayout } from '../../components/layout/MainLayout';
-import { DataTable } from '../../components/ui/data-table';
-import { Button } from '../../components/ui/button';
-import { Input } from '../../components/ui/input';
-import { Badge } from '../../components/ui/badge';
-import { StatCard } from '../../components/dashboard/StatCard';
-import { mockTransactions } from '../../data/mockData';
-import type { Transaction } from '../../types/clinic';
-import { TransactionModal } from '../../components/modals/TransactionModal';
-import { useNotificationActions } from '../../hooks/useNotificationActions';
-import { cn } from '../../lib/utils';
+import { useState } from "react";
+import { format } from "date-fns";
+import { Plus, Search, CreditCard } from "lucide-react";
+import { MainLayout } from "@/components/layout/MainLayout";
+import { DataTable } from "@/components/ui/data-table";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
+import { StatCard } from "@/components/dashboard/StatCard";
+import { mockTransactions } from "@/data/mockData";
+import { Transaction } from "@/types/clinic";
+import { TransactionModal } from "@/components/modals/TransactionModal";
+import { useNotificationActions } from "@/hooks/useNotificationActions";
+import { cn } from "@/lib/utils";
 
 const statusConfig = {
-  pending: { label: 'Pendente', className: 'badge-warning' },
-  paid: { label: 'Pago', className: 'badge-success' },
-  overdue: { label: 'Vencido', className: 'badge-destructive' },
-  cancelled: { label: 'Cancelado', className: 'bg-muted text-muted-foreground' },
+  pending: { label: "Pendente", className: "badge-warning" },
+  paid: { label: "Pago", className: "badge-success" },
+  overdue: { label: "Vencido", className: "badge-destructive" },
+  cancelled: {
+    label: "Cancelado",
+    className: "bg-muted text-muted-foreground",
+  },
 };
 
 export default function Payables() {
-  const [searchTerm, setSearchTerm] = useState('');
+  const [searchTerm, setSearchTerm] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [transactions, setTransactions] = useState(mockTransactions);
   const { notifyTransactionCreated } = useNotificationActions();
 
-  const payables = transactions.filter((t) => t.type === 'payable');
+  const payables = transactions.filter((t) => t.type === "payable");
   const filteredPayables = payables.filter((item) =>
-    item.description.toLowerCase().includes(searchTerm.toLowerCase())
+    item.description.toLowerCase().includes(searchTerm.toLowerCase()),
   );
 
   const totalPending = payables
-    .filter((t) => t.status === 'pending')
+    .filter((t) => t.status === "pending")
     .reduce((acc, t) => acc + t.amount, 0);
 
   const totalPaid = payables
-    .filter((t) => t.status === 'paid')
+    .filter((t) => t.status === "paid")
     .reduce((acc, t) => acc + t.amount, 0);
 
   const totalOverdue = payables
-    .filter((t) => t.status === 'overdue')
+    .filter((t) => t.status === "overdue")
     .reduce((acc, t) => acc + t.amount, 0);
 
-  const handleSave = (transactionData: Omit<Transaction, 'id'>) => {
+  const handleSave = (transactionData: Omit<Transaction, "id">) => {
     const newTransaction: Transaction = {
       ...transactionData,
       id: String(Date.now()),
     };
     setTransactions([...transactions, newTransaction]);
-    notifyTransactionCreated('payable', transactionData.description, transactionData.amount);
+    notifyTransactionCreated(
+      "payable",
+      transactionData.description,
+      transactionData.amount,
+    );
   };
 
   const columns = [
     {
-      key: 'description',
-      header: 'Descrição',
+      key: "description",
+      header: "Descrição",
       cell: (item: Transaction) => (
         <div>
           <p className="font-medium text-foreground">{item.description}</p>
@@ -64,38 +71,43 @@ export default function Payables() {
       ),
     },
     {
-      key: 'amount',
-      header: 'Valor',
+      key: "amount",
+      header: "Valor",
       cell: (item: Transaction) => (
         <span className="font-semibold text-destructive">
-          R$ {item.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+          R$ {item.amount.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
         </span>
       ),
     },
     {
-      key: 'dueDate',
-      header: 'Vencimento',
+      key: "dueDate",
+      header: "Vencimento",
       cell: (item: Transaction) => (
         <span className="text-muted-foreground">
-          {format(item.dueDate, 'dd/MM/yyyy')}
+          {format(item.dueDate, "dd/MM/yyyy")}
         </span>
       ),
     },
     {
-      key: 'paidDate',
-      header: 'Pagamento',
+      key: "paidDate",
+      header: "Pagamento",
       cell: (item: Transaction) =>
         item.paidDate ? (
-          <span className="text-success">{format(item.paidDate, 'dd/MM/yyyy')}</span>
+          <span className="text-success">
+            {format(item.paidDate, "dd/MM/yyyy")}
+          </span>
         ) : (
           <span className="text-muted-foreground">-</span>
         ),
     },
     {
-      key: 'status',
-      header: 'Status',
+      key: "status",
+      header: "Status",
       cell: (item: Transaction) => (
-        <Badge variant="outline" className={cn(statusConfig[item.status].className)}>
+        <Badge
+          variant="outline"
+          className={cn(statusConfig[item.status].className)}
+        >
           {statusConfig[item.status].label}
         </Badge>
       ),
@@ -103,24 +115,27 @@ export default function Payables() {
   ];
 
   return (
-    <MainLayout title="Contas a Pagar" subtitle="Gerencie as despesas da clínica">
+    <MainLayout
+      title="Contas a Pagar"
+      subtitle="Gerencie as despesas da clínica"
+    >
       {/* Stats */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
         <StatCard
           title="A Pagar"
-          value={`R$ ${totalPending.toLocaleString('pt-BR')}`}
+          value={`R$ ${totalPending.toLocaleString("pt-BR")}`}
           icon={CreditCard}
           variant="warning"
         />
         <StatCard
           title="Pago"
-          value={`R$ ${totalPaid.toLocaleString('pt-BR')}`}
+          value={`R$ ${totalPaid.toLocaleString("pt-BR")}`}
           icon={CreditCard}
           variant="success"
         />
         <StatCard
           title="Vencido"
-          value={`R$ ${totalOverdue.toLocaleString('pt-BR')}`}
+          value={`R$ ${totalOverdue.toLocaleString("pt-BR")}`}
           icon={CreditCard}
           variant="primary"
         />

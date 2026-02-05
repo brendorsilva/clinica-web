@@ -3,8 +3,9 @@ import { Patient } from "@/types/clinic";
 
 export const patientService = {
   // Listar todos os pacientes da clínica
-  getAll: async () => {
-    const response = await api.get<Patient[]>("/patients");
+  getAll: async (search?: string) => {
+    const params = search ? `?search=${search}` : "";
+    const response = await api.get<Patient[]>(`/patients${params}`);
     return response.data;
   },
 

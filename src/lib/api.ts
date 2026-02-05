@@ -1,7 +1,8 @@
 import axios from "axios";
 
 export const api = axios.create({
-  baseURL: "http://localhost:3000", // Confirme se seu backend roda aqui
+  //baseURL: "http://localhost:3000",
+  baseURL: "https://clinica-api-df1a.onrender.com",
 });
 
 api.interceptors.request.use((config) => {

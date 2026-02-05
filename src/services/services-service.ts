@@ -2,8 +2,9 @@ import { api } from "@/lib/api";
 import { Service } from "@/types/clinic";
 
 export const servicesService = {
-  getAll: async () => {
-    const response = await api.get<Service[]>("/services");
+  getAll: async (status?: string) => {
+    const params = status ? `?status=${status}` : "";
+    const response = await api.get<Service[]>(`/services${params}`);
     return response.data;
   },
 

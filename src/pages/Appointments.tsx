@@ -8,6 +8,8 @@ import {
   Stethoscope,
   Edit,
   Trash2,
+  Filter,
+  X,
 } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -21,6 +23,15 @@ import { AppointmentModal } from "../components/modals/AppointmentModal";
 import { appointmentService } from "../services/appointment-service";
 import { toast } from "sonner";
 
+// Imports do Select para o filtro de Status
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "../components/ui/select";
+
 import {
   AlertDialog,
   AlertDialogAction,
@@ -33,13 +44,15 @@ import {
 } from "../components/ui/alert-dialog";
 
 export default function Appointments() {
-  // Filtros
-  const [dateFilter, setDateFilter] = useState(
-    new Date().toISOString().split("T")[0],
-  ); // Começa com HOJE
+  // --- NOVOS ESTADOS DE FILTRO ---
+  // Inicializa com a data de HOJE para ambos, para mostrar o dia atual por padrão
+  const today = new Date().toISOString().split("T")[0];
+  const [startDate, setStartDate] = useState(today);
+  const [endDate, setEndDate] = useState(today);
+  const [statusFilter, setStatusFilter] = useState("all");
   const [searchTerm, setSearchTerm] = useState("");
 
-  // Dados
+  // Dados e Loading
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -52,15 +65,12 @@ export default function Appointments() {
   const [appointmentToDelete, setAppointmentToDelete] =
     useState<Appointment | null>(null);
 
+  // Busca dados no Backend (Considerando o Range de Datas)
   const fetchAppointments = async () => {
     try {
       setIsLoading(true);
-      // Aqui poderíamos passar dateFilter como startDate e endDate para filtrar no backend
-      // Por enquanto, vamos pegar tudo e filtrar no front se quiser, ou usar o filtro:
-      // const data = await appointmentService.getAll(dateFilter, dateFilter); (Para pegar só do dia)
-
-      // Vamos pegar TUDO por enquanto para ver a lista cheia:
-      const data = await appointmentService.getAll();
+      // Passamos as datas para a API filtrar no banco de dados
+      const data = await appointmentService.getAll(startDate, endDate);
       setAppointments(data);
     } catch (error) {
       console.error(error);
@@ -70,21 +80,32 @@ export default function Appointments() {
     }
   };
 
+  // Recarrega sempre que mudar o intervalo de datas
   useEffect(() => {
     fetchAppointments();
-  }, []); // Se quiser recarregar ao mudar data: [dateFilter]
+  }, [startDate, endDate]);
 
-  // Lógica de Filtro no Frontend (Data + Busca)
+  // Lógica de Filtro Local (Status + Busca por Texto)
   const filteredAppointments = appointments.filter((app) => {
-    const appDate = new Date(app.date).toISOString().split("T")[0];
-    const matchDate = !dateFilter || appDate === dateFilter; // Se tiver filtro de data, usa. Se vazio, mostra tudo.
+    // 1. Filtro de Status
+    const matchStatus = statusFilter === "all" || app.status === statusFilter;
 
+    // 2. Filtro de Texto (Paciente ou Médico)
     const matchSearch =
-      app.patient?.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      app.doctor?.name.toLowerCase().includes(searchTerm.toLowerCase());
+      (app.patient?.name || "")
+        .toLowerCase()
+        .includes(searchTerm.toLowerCase()) ||
+      (app.doctor?.name || "").toLowerCase().includes(searchTerm.toLowerCase());
 
-    return matchDate && matchSearch;
+    return matchStatus && matchSearch;
   });
+
+  const handleClearFilters = () => {
+    setStartDate(today);
+    setEndDate(today);
+    setStatusFilter("all");
+    setSearchTerm("");
+  };
 
   const handleSave = async (data: any) => {
     try {
@@ -100,9 +121,7 @@ export default function Appointments() {
       setSelectedAppointment(undefined);
     } catch (error) {
       console.error(error);
-      toast.error(
-        "Erro ao salvar. Verifique se o paciente e médico estão ativos.",
-      );
+      toast.error("Erro ao salvar. Verifique os dados.");
     }
   };
 
@@ -157,7 +176,11 @@ export default function Appointments() {
             {app.time}
           </div>
           <span className="text-xs text-muted-foreground">
-            {format(new Date(app.date), "dd/MM", { locale: ptBR })}
+            {new Date(app.date).toLocaleDateString("pt-BR", {
+              timeZone: "UTC",
+              day: "2-digit",
+              month: "2-digit",
+            })}
           </span>
         </div>
       ),
@@ -236,23 +259,56 @@ export default function Appointments() {
       title="Agendamentos"
       subtitle="Agenda de consultas e procedimentos"
     >
-      <div className="page-header flex flex-col md:flex-row gap-4 justify-between items-center">
-        <div className="flex flex-col sm:flex-row gap-3 w-full md:w-auto">
-          {/* Filtro de Data */}
-          <div className="relative">
-            <div className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none text-muted-foreground">
-              <Calendar className="h-4 w-4" />
+      {/* Barra de Ferramentas / Filtros */}
+      <div className="page-header flex flex-col xl:flex-row gap-4 justify-between items-start xl:items-center">
+        <div className="flex flex-col md:flex-row gap-3 w-full xl:w-auto flex-wrap">
+          {/* Grupo de Datas */}
+          <div className="flex gap-2 w-full md:w-auto">
+            <div className="relative flex-1 md:w-45">
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground pointer-events-none bg-background px-1">
+                De
+              </span>
+              <Input
+                type="date"
+                value={startDate}
+                onChange={(e) => setStartDate(e.target.value)}
+                className="pl-12"
+              />
             </div>
-            <Input
-              type="date"
-              value={dateFilter}
-              onChange={(e) => setDateFilter(e.target.value)}
-              className="pl-9 w-40"
-            />
+            <div className="relative flex-1 md:w-45">
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground pointer-events-none bg-background px-1">
+                Até
+              </span>
+              <Input
+                type="date"
+                value={endDate}
+                onChange={(e) => setEndDate(e.target.value)}
+                className="pl-12"
+              />
+            </div>
+          </div>
+
+          {/* Filtro de Status */}
+          <div className="w-full md:w-48">
+            <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <SelectTrigger>
+                <div className="flex items-center gap-2">
+                  <Filter className="h-4 w-4 text-muted-foreground" />
+                  <SelectValue placeholder="Status" />
+                </div>
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos os Status</SelectItem>
+                <SelectItem value="scheduled">📅 Agendados</SelectItem>
+                <SelectItem value="confirmed">✅ Confirmados</SelectItem>
+                <SelectItem value="completed">🏁 Concluídos</SelectItem>
+                <SelectItem value="cancelled">🚫 Cancelados</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
 
           {/* Busca Texto */}
-          <div className="relative w-full sm:w-64">
+          <div className="relative w-full md:w-64">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
               placeholder="Buscar paciente ou médico..."
@@ -262,13 +318,21 @@ export default function Appointments() {
             />
           </div>
 
-          <Button
-            variant="outline"
-            onClick={() => setDateFilter("")} // Limpar filtro de data
-            className="text-xs"
-          >
-            Ver Todos
-          </Button>
+          {/* Botão Limpar Filtros */}
+          {(searchTerm ||
+            statusFilter !== "all" ||
+            startDate !== today ||
+            endDate !== today) && (
+            <Button
+              variant="ghost"
+              onClick={handleClearFilters}
+              className="text-muted-foreground hover:text-foreground px-2"
+              title="Limpar filtros"
+            >
+              <X className="h-4 w-4 mr-2" />
+              Limpar
+            </Button>
+          )}
         </div>
 
         <Button
@@ -293,14 +357,18 @@ export default function Appointments() {
         onOpenChange={setIsModalOpen}
         onSave={handleSave}
         appointment={selectedAppointment}
+        // Se criar um novo agendamento, usa a data inicial do filtro como sugestão
+        selectedDate={new Date(startDate)}
       />
 
       <AlertDialog open={isDeleteModalOpen} onOpenChange={setIsDeleteModalOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Cancelar Agendamento?</AlertDialogTitle>
+            <AlertDialogTitle>Excluir Agendamento?</AlertDialogTitle>
             <AlertDialogDescription>
-              Isso removerá permanentemente o agendamento do sistema.
+              Tem certeza? Isso removerá permanentemente este agendamento. Se o
+              paciente apenas desistiu, considere mudar o status para{" "}
+              <span className="font-bold">Cancelado</span>.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

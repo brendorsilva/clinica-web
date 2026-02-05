@@ -18,18 +18,17 @@ import {
   SelectValue,
 } from "../../components/ui/select";
 import { toast } from "sonner";
-
-// Services para buscar as listas
 import { patientService } from "../../services/patient-service";
 import { doctorService } from "../../services/doctor-service";
 import { servicesService } from "../../services/services-service";
-
 import type { Appointment, Patient, Doctor, Service } from "../../types/clinic";
+import { AsyncPatientSelect } from "../ui/async-patient-select";
 
 interface AppointmentModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   appointment?: Appointment;
+  selectedDate?: Date;
   onSave: (data: any) => void;
 }
 
@@ -37,10 +36,9 @@ export function AppointmentModal({
   open,
   onOpenChange,
   appointment,
+  selectedDate,
   onSave,
 }: AppointmentModalProps) {
-  // Listas para os Selects
-  const [patients, setPatients] = useState<Patient[]>([]);
   const [doctors, setDoctors] = useState<Doctor[]>([]);
   const [services, setServices] = useState<Service[]>([]);
 
@@ -54,17 +52,15 @@ export function AppointmentModal({
     status: "scheduled",
   });
 
-  // Carrega as listas de apoio ao abrir o modal
   useEffect(() => {
     if (open) {
       const loadData = async () => {
         try {
           const [pts, docs, servs] = await Promise.all([
             patientService.getAll(),
-            doctorService.getAll(),
-            servicesService.getAll(),
+            doctorService.getAll("active"),
+            servicesService.getAll("active"),
           ]);
-          setPatients(pts);
           setDoctors(docs);
           setServices(servs);
         } catch (error) {
@@ -76,33 +72,31 @@ export function AppointmentModal({
     }
   }, [open]);
 
-  // Preenche o formulário (Edição ou Criação)
   useEffect(() => {
     if (appointment) {
-      // Modo Edição
       setFormData({
         patientId: appointment.patientId,
         doctorId: appointment.doctorId,
         serviceId: appointment.serviceId,
-        // Backend manda ISO completo (yyyy-mm-ddThh:mm...), pegamos só a data
         date: new Date(appointment.date).toISOString().split("T")[0],
         time: appointment.time,
         notes: appointment.notes || "",
         status: appointment.status,
       });
     } else {
-      // Modo Criação: Data de hoje
       setFormData({
         patientId: "",
         doctorId: "",
         serviceId: "",
-        date: new Date().toISOString().split("T")[0],
+        date: selectedDate
+          ? selectedDate.toISOString().split("T")[0]
+          : new Date().toISOString().split("T")[0],
         time: "09:00",
         notes: "",
         status: "scheduled",
       });
     }
-  }, [appointment, open]);
+  }, [appointment, selectedDate, open]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -117,7 +111,6 @@ export function AppointmentModal({
       toast.error("Preencha todos os campos obrigatórios (*)");
       return;
     }
-
     onSave(formData);
   };
 
@@ -131,10 +124,13 @@ export function AppointmentModal({
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="grid grid-cols-2 gap-4">
-          {/* Paciente */}
           <div className="col-span-2">
             <Label>Paciente *</Label>
-            <Select
+            <AsyncPatientSelect
+              value={formData.patientId}
+              onChange={(val) => setFormData({ ...formData, patientId: val })}
+            />
+            {/* <Select
               value={formData.patientId}
               onValueChange={(val) =>
                 setFormData({ ...formData, patientId: val })
@@ -150,10 +146,9 @@ export function AppointmentModal({
                   </SelectItem>
                 ))}
               </SelectContent>
-            </Select>
+            </Select> */}
           </div>
 
-          {/* Médico */}
           <div className="col-span-1">
             <Label>Médico *</Label>
             <Select
@@ -175,7 +170,6 @@ export function AppointmentModal({
             </Select>
           </div>
 
-          {/* Serviço */}
           <div className="col-span-1">
             <Label>Serviço/Procedimento *</Label>
             <Select
@@ -197,7 +191,6 @@ export function AppointmentModal({
             </Select>
           </div>
 
-          {/* Data e Hora */}
           <div>
             <Label htmlFor="date">Data *</Label>
             <Input
@@ -221,7 +214,6 @@ export function AppointmentModal({
             />
           </div>
 
-          {/* Status (Apenas na edição) */}
           {appointment && (
             <div className="col-span-2 bg-muted/30 p-2 rounded border border-border/50">
               <Label>Status do Agendamento</Label>
@@ -246,7 +238,6 @@ export function AppointmentModal({
             </div>
           )}
 
-          {/* Observações */}
           <div className="col-span-2">
             <Label htmlFor="notes">Observações</Label>
             <Textarea

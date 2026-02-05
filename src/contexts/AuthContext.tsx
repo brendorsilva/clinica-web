@@ -8,12 +8,11 @@ import {
 import { api } from "@/lib/api";
 import { User } from "@/types/clinic";
 
-// 1. Definimos que o Contexto TEM a função registerClinic
 interface AuthContextType {
   user: User | null;
   isAuthenticated: boolean;
   signIn: (email: string, password: string) => Promise<void>;
-  registerClinic: (data: any) => Promise<void>; // <--- OBRIGATÓRIO ESTAR AQUI
+  registerClinic: (data: any) => Promise<void>;
   signOut: () => void;
   loading: boolean;
 }
@@ -29,7 +28,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const token = localStorage.getItem("clinic_token");
 
     if (storedUser && token) {
-      setUser(JSON.parse(storedUser));
+      const parsedUser = JSON.parse(storedUser);
+
+      if (!parsedUser.permissions) {
+        parsedUser.permissions = [];
+      }
+
+      setUser(parsedUser);
       api.defaults.headers.common["Authorization"] = `Bearer ${token}`;
     }
     setLoading(false);
@@ -47,12 +52,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(userData);
   }
 
-  // 2. Implementamos a função
   async function registerClinic(data: any) {
-    // Chama a rota de registro no backend
     await api.post("/auth/register", data);
-
-    // Após registrar com sucesso, faz login automático
     await signIn(data.userEmail, data.password);
   }
 
@@ -69,7 +70,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         user,
         isAuthenticated: !!user,
         signIn,
-        registerClinic, // <--- 3. OBRIGATÓRIO EXPORTAR AQUI NO VALUE
+        registerClinic,
         signOut,
         loading,
       }}
