@@ -1,26 +1,26 @@
-import { useState, useEffect } from 'react';
-import { format } from 'date-fns';
-import { ptBR } from 'date-fns/locale';
+import { useState, useEffect } from "react";
+import { format } from "date-fns";
+import { ptBR } from "date-fns/locale";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
-} from '@/components/ui/dialog';
-import { Button } from '@/components/ui/button';
-import { Label } from '@/components/ui/label';
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@/components/ui/select';
-import { Appointment, BankAccount } from '@/types/clinic';
-import { mockBankAccounts } from '@/data/mockData';
-import { toast } from 'sonner';
+} from "@/components/ui/select";
+import { Appointment, BankAccount } from "@/types/clinic";
+import { mockBankAccounts } from "@/data/mockData";
+import { toast } from "sonner";
 
-type PaymentMethod = 'cash' | 'pix' | 'credit_card' | 'debit_card';
+type PaymentMethod = "cash" | "pix" | "credit_card" | "debit_card";
 
 interface AppointmentStatusModalProps {
   open: boolean;
@@ -28,19 +28,19 @@ interface AppointmentStatusModalProps {
   appointment: Appointment | null;
   onSave: (
     appointmentId: string,
-    newStatus: Appointment['status'],
+    newStatus: Appointment["status"],
     paymentData?: {
       paymentMethod: PaymentMethod;
       bankAccountId?: string;
-    }
+    },
   ) => void;
 }
 
-const statusOptions: { value: Appointment['status']; label: string }[] = [
-  { value: 'scheduled', label: 'Agendado' },
-  { value: 'confirmed', label: 'Confirmado' },
-  { value: 'completed', label: 'Concluído' },
-  { value: 'cancelled', label: 'Cancelado' },
+const statusOptions: { value: Appointment["status"]; label: string }[] = [
+  { value: "scheduled", label: "Agendado" },
+  { value: "confirmed", label: "Confirmado" },
+  { value: "completed", label: "Concluído" },
+  { value: "cancelled", label: "Cancelado" },
 ];
 
 export function AppointmentStatusModal({
@@ -49,18 +49,21 @@ export function AppointmentStatusModal({
   appointment,
   onSave,
 }: AppointmentStatusModalProps) {
-  const [status, setStatus] = useState<Appointment['status']>('scheduled');
-  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod | ''>('');
-  const [bankAccountId, setBankAccountId] = useState<string>('');
+  const [status, setStatus] = useState<Appointment["status"]>("scheduled");
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod | "">("");
+  const [bankAccountId, setBankAccountId] = useState<string>("");
   const [bankAccounts] = useState<BankAccount[]>(mockBankAccounts);
 
-  const requiresBankAccount = paymentMethod === 'pix' || paymentMethod === 'credit_card' || paymentMethod === 'debit_card';
+  const requiresBankAccount =
+    paymentMethod === "pix" ||
+    paymentMethod === "credit_card" ||
+    paymentMethod === "debit_card";
 
   useEffect(() => {
     if (appointment) {
       setStatus(appointment.status);
-      setPaymentMethod('');
-      setBankAccountId('');
+      setPaymentMethod("");
+      setBankAccountId("");
     }
   }, [appointment]);
 
@@ -68,14 +71,14 @@ export function AppointmentStatusModal({
     if (!appointment) return;
 
     // Se está marcando como concluído, exige forma de pagamento
-    if (status === 'completed') {
+    if (status === "completed") {
       if (!paymentMethod) {
-        toast.error('Selecione a forma de pagamento');
+        toast.error("Selecione a forma de pagamento");
         return;
       }
 
       if (requiresBankAccount && !bankAccountId) {
-        toast.error('Selecione a conta bancária');
+        toast.error("Selecione a conta bancária");
         return;
       }
 
@@ -92,7 +95,8 @@ export function AppointmentStatusModal({
 
   if (!appointment) return null;
 
-  const showPaymentOptions = status === 'completed' && appointment.status !== 'completed';
+  const showPaymentOptions =
+    status === "completed" && appointment.status !== "completed";
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -106,26 +110,36 @@ export function AppointmentStatusModal({
           <div className="rounded-lg bg-muted/50 p-4 space-y-2">
             <div className="flex justify-between">
               <span className="text-sm text-muted-foreground">Paciente:</span>
-              <span className="text-sm font-medium">{appointment.patientName}</span>
+              <span className="text-sm font-medium">
+                {appointment.patient?.name}
+              </span>
             </div>
             <div className="flex justify-between">
               <span className="text-sm text-muted-foreground">Médico:</span>
-              <span className="text-sm font-medium">{appointment.doctorName}</span>
+              <span className="text-sm font-medium">
+                {appointment.doctor?.name}
+              </span>
             </div>
             <div className="flex justify-between">
               <span className="text-sm text-muted-foreground">Serviço:</span>
-              <span className="text-sm font-medium">{appointment.serviceName}</span>
+              <span className="text-sm font-medium">
+                {appointment.service?.name}
+              </span>
             </div>
             <div className="flex justify-between">
               <span className="text-sm text-muted-foreground">Data/Hora:</span>
               <span className="text-sm font-medium">
-                {format(appointment.date, "dd/MM/yyyy", { locale: ptBR })} às {appointment.time}
+                {format(appointment.date, "dd/MM/yyyy", { locale: ptBR })} às{" "}
+                {appointment.time}
               </span>
             </div>
             <div className="flex justify-between">
               <span className="text-sm text-muted-foreground">Valor:</span>
               <span className="text-sm font-semibold text-primary">
-                R$ {appointment.price.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                R${" "}
+                {appointment.service?.price.toLocaleString("pt-BR", {
+                  minimumFractionDigits: 2,
+                })}
               </span>
             </div>
           </div>
@@ -133,7 +147,10 @@ export function AppointmentStatusModal({
           {/* Seleção de status */}
           <div className="space-y-2">
             <Label>Novo Status</Label>
-            <Select value={status} onValueChange={(value: Appointment['status']) => setStatus(value)}>
+            <Select
+              value={status}
+              onValueChange={(value: Appointment["status"]) => setStatus(value)}
+            >
               <SelectTrigger>
                 <SelectValue placeholder="Selecione o status" />
               </SelectTrigger>
@@ -152,18 +169,25 @@ export function AppointmentStatusModal({
             <>
               <div className="space-y-2">
                 <Label>Forma de Pagamento</Label>
-                <Select value={paymentMethod} onValueChange={(value: PaymentMethod) => setPaymentMethod(value)}>
+                <Select
+                  value={paymentMethod}
+                  onValueChange={(value: PaymentMethod) =>
+                    setPaymentMethod(value)
+                  }
+                >
                   <SelectTrigger>
                     <SelectValue placeholder="Selecione a forma de pagamento" />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="cash">Dinheiro (Caixa)</SelectItem>
                     <SelectItem value="pix">PIX (Conta Bancária)</SelectItem>
-                    <SelectItem value="credit_card">Cartão de Crédito</SelectItem>
+                    <SelectItem value="credit_card">
+                      Cartão de Crédito
+                    </SelectItem>
                     <SelectItem value="debit_card">Cartão de Débito</SelectItem>
                   </SelectContent>
                 </Select>
-                {paymentMethod === 'cash' && (
+                {paymentMethod === "cash" && (
                   <p className="text-xs text-muted-foreground">
                     O valor será adicionado ao caixa
                   </p>
@@ -173,7 +197,10 @@ export function AppointmentStatusModal({
               {requiresBankAccount && (
                 <div className="space-y-2">
                   <Label>Conta Bancária</Label>
-                  <Select value={bankAccountId} onValueChange={setBankAccountId}>
+                  <Select
+                    value={bankAccountId}
+                    onValueChange={setBankAccountId}
+                  >
                     <SelectTrigger>
                       <SelectValue placeholder="Selecione a conta" />
                     </SelectTrigger>
@@ -198,9 +225,7 @@ export function AppointmentStatusModal({
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Cancelar
           </Button>
-          <Button onClick={handleSave}>
-            Salvar
-          </Button>
+          <Button onClick={handleSave}>Salvar</Button>
         </div>
       </DialogContent>
     </Dialog>

@@ -1,26 +1,31 @@
-import { format } from 'date-fns';
-import { ptBR } from 'date-fns/locale';
-import { Clock, User } from 'lucide-react';
-import { Badge } from '../../components/ui/badge';
-import type { Appointment } from '../../types/clinic';
-import { cn } from '../../lib/utils';
+import { format } from "date-fns";
+import { ptBR } from "date-fns/locale";
+import { Clock, User } from "lucide-react";
+import { Badge } from "../../components/ui/badge";
+import type { Appointment } from "../../types/clinic";
+import { cn } from "../../lib/utils";
 
 interface AppointmentsListProps {
   appointments: Appointment[];
 }
 
 const statusConfig = {
-  scheduled: { label: 'Agendado', className: 'badge-primary' },
-  confirmed: { label: 'Confirmado', className: 'badge-success' },
-  completed: { label: 'Concluído', className: 'bg-muted text-muted-foreground' },
-  cancelled: { label: 'Cancelado', className: 'badge-destructive' },
+  scheduled: { label: "Agendado", className: "badge-primary" },
+  confirmed: { label: "Confirmado", className: "badge-success" },
+  completed: {
+    label: "Concluído",
+    className: "bg-muted text-muted-foreground",
+  },
+  cancelled: { label: "Cancelado", className: "badge-destructive" },
 };
 
 export function AppointmentsList({ appointments }: AppointmentsListProps) {
   return (
     <div className="bg-card rounded-xl border border-border">
       <div className="border-b border-border px-6 py-4">
-        <h3 className="text-lg font-semibold text-foreground">Agendamentos de Hoje</h3>
+        <h3 className="text-lg font-semibold text-foreground">
+          Agendamentos de Hoje
+        </h3>
         <p className="text-sm text-muted-foreground">
           {format(new Date(), "EEEE, d 'de' MMMM", { locale: ptBR })}
         </p>
@@ -42,24 +47,32 @@ export function AppointmentsList({ appointments }: AppointmentsListProps) {
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2">
                   <p className="font-medium text-foreground truncate">
-                    {appointment.patientName}
+                    {appointment.patient.name}
                   </p>
-                  <Badge variant="outline" className={cn('text-xs', statusConfig[appointment.status].className)}>
+                  <Badge
+                    variant="outline"
+                    className={cn(
+                      "text-xs",
+                      statusConfig[appointment.status].className,
+                    )}
+                  >
                     {statusConfig[appointment.status].label}
                   </Badge>
                 </div>
                 <div className="flex items-center gap-4 mt-1 text-sm text-muted-foreground">
                   <span className="flex items-center gap-1">
                     <User className="h-3.5 w-3.5" />
-                    {appointment.doctorName}
+                    {appointment.doctor?.name}
                   </span>
-                  <span>{appointment.serviceName}</span>
+                  <span>{appointment.service.name}</span>
                 </div>
               </div>
               <div className="text-right">
-                <p className="font-semibold text-foreground">{appointment.time}</p>
+                <p className="font-semibold text-foreground">
+                  {appointment.time}
+                </p>
                 <p className="text-sm text-muted-foreground">
-                  R$ {appointment.price.toLocaleString('pt-BR')}
+                  R$ {appointment.service?.price.toLocaleString("pt-BR")}
                 </p>
               </div>
             </div>
